@@ -1,8 +1,7 @@
 module Test.Sqlite.Core where
 
-import Effect.Console (log, logShow)
 import Effect.Class (liftEffect)
-import Effect.Aff (launchAff)
+import Effect.Aff (attempt, launchAff)
 import Effect (Effect, forE)
 import Effect.Exception (message)
 import Data.Array (length)
@@ -58,7 +57,6 @@ main = runTest do
         _ <- launchAff $ stmtRun stmt [ Tuple "$value" (SqlInt i) ]
         pure unit
 
-      liftEffect $ log "inserted values"
       stmtFinalize stmt
 
       rows <- get db "SELECT * from lorem"
@@ -73,26 +71,24 @@ main = runTest do
       stmtSelectOne <- stmtPrepare db "SELECT * FROM lorem WHERE info = $info"
       let loremInfo = "5"
       loremRow <- stmtGetOne stmtSelectOne [ Tuple "$info" (SqlString loremInfo) ]
-      liftEffect $ logShow (loremRow :: Maybe Lorem)
       assert "Expected row is not found" $ loremRow == (Just $ Lorem { info: loremInfo })
       let badLoremInfo = "11"
       badLoremRow <- stmtGetOne stmtSelectOne [ Tuple "$info" (SqlString badLoremInfo) ]
-      liftEffect $ logShow (badLoremRow :: Maybe Lorem)
       assert "Expected row to be Nothing" $ isNothing (badLoremRow :: Maybe Lorem)
       stmtFinalize stmtSelectOne
 
       close db
---
---     test "failed connect" do
---       failDb <- attempt $ connect "someNonexistentFile" ReadOnly
---       assert "Db connection failed" $ (isLeft failDb) == true
---
---       case failDb of
---         Right _  -> assert "Db connection should not have succeeded" false
---         Left err -> assert "Db error object has the wrong message" $ (message err) == "SQLITE_CANTOPEN: unable to open database file"
---
---     test "setVerbose" do
---       -- setVerbose call can't fail
---       -- This test should somehow check stacktrace
---       -- of a failed sqlite method call
---       pure unit
+
+    test "failed connect" do
+      failDb <- attempt $ connect "someNonexistentFile" ReadOnly
+      assert "Db connection failed" $ (isLeft failDb) == true
+
+      case failDb of
+        Right _  -> assert "Db connection should not have succeeded" false
+        Left err -> assert "Db error object has the wrong message" $ (message err) == "SQLITE_CANTOPEN: unable to open database file"
+
+    test "setVerbose" do
+      -- setVerbose call can't fail
+      -- This test should somehow check stacktrace
+      -- of a failed sqlite method call
+      pure unit

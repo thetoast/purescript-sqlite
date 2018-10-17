@@ -48,18 +48,14 @@ exports._close = function(db) {
 }
 
 exports._run = function(db, query) {
-  console.log('run called');
   return function(error, success) {
-    console.log('run executed');
     db.run(query, function(err) {
       if (err) {
-        console.log('run error:', err);
         error(err);
       }
       else {
         var lastID = this.lastID; // Only for INSERT
         var changes = this.changes; // Only for UPDATE or DELETE
-        console.log('run success', lastID, changes);
         success({ lastID: lastID, changes: changes });
       }
     });
