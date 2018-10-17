@@ -1,21 +1,21 @@
 module Sqlite.Core where
 
 import Prelude
-import Data.Int.Bits as Bits
-import Control.Monad.Aff (Aff)
-import Control.Monad.Eff (kind Effect, Eff)
-import Control.Monad.Eff.Exception (Error, error)
+
 import Control.Monad.Error.Class (throwError)
 import Control.Monad.Except (runExcept)
 import Data.Either (either)
-import Data.Foreign (Foreign)
-import Data.Foreign.Class (class Decode, decode)
 import Data.Function.Uncurried (Fn2, Fn3, mkFn2, runFn2, runFn3)
-import Data.HObject.Primitive (class Primitive)
-import Data.Maybe (Maybe)
-import Data.Undefinable (Undefinable, toMaybe)
+import Data.Int.Bits as Bits
+import Data.Maybe (Maybe(..))
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple)
+import Effect (Effect)
+import Effect.Aff (Aff)
+import Effect.Aff.Compat (EffectFnAff, fromEffectFnAff)
+import Effect.Exception (Error, error)
+import Foreign (Foreign)
+import Foreign.Class (class Decode, decode)
 
 
 foreign import _OPEN_READONLY :: Int
@@ -33,26 +33,26 @@ modeToInt ReadOnlyCreate = _OPEN_READONLY `Bits.or` _OPEN_CREATE
 modeToInt ReadWriteCreate = _OPEN_READWRITE `Bits.or` _OPEN_CREATE
 
 -- | Corresponds to a database event
-data DbEvent e a
-  = Open    (Unit   -> Eff e a)
-  | Close   (Unit   -> Eff e a)
-  | Error   (Error  -> Eff e a)
-  | Trace   (String -> Eff e a)
-  | Profile (String -> Int -> Eff e a)
+data DbEvent a
+  = Open    (Unit   -> Effect a)
+  | Close   (Unit   -> Effect a)
+  | Error   (Error  -> Effect a)
+  | Trace   (String -> Effect a)
+  | Profile (String -> Int -> Effect a)
 
 data SqlParam = SqlString String | SqlInt Int | SqlNumber Number | SqlBoolean Boolean
 
-instance strSqlParam :: Primitive String SqlParam where
-  mkPrim = SqlString
+-- instance strSqlParam :: Primitive String SqlParam where
+--   mkPrim = SqlString
 
-instance intSqlParam :: Primitive Int SqlParam where
-  mkPrim = SqlInt
+-- instance intSqlParam :: Primitive Int SqlParam where
+--   mkPrim = SqlInt
 
-instance numSqlParam :: Primitive Number SqlParam where
-  mkPrim = SqlNumber
+-- instance numSqlParam :: Primitive Number SqlParam where
+--   mkPrim = SqlNumber
 
-instance boolSqlParam :: Primitive Boolean SqlParam where
-  mkPrim = SqlBoolean
+-- instance boolSqlParam :: Primitive Boolean SqlParam where
+--   mkPrim = SqlBoolean
 
 instance showSqlParam :: Show SqlParam where
   show (SqlString a)  = a
@@ -63,40 +63,37 @@ instance showSqlParam :: Show SqlParam where
 type SqlParams = Array (Tuple String SqlParam)
 
 type SqlQuery = String
-type SqlRow  a = forall e. Decode a => Aff (sqlite :: SQLITE | e) (Maybe a)
-type SqlRows a = forall e. Decode a => Aff (sqlite :: SQLITE | e) (Array a)
+type SqlRow  a = Decode a => Aff (Maybe a)
+type SqlRows a = Decode a => Aff (Array a)
 
 
 -- | Sets the debug mode for sqlite to verbose
-setVerbose :: forall e. Eff (sqlite :: SQLITE | e) Unit
+setVerbose :: Effect Unit
 setVerbose = _setVerbose
 
 
 connect
-  :: forall e
-   . String
+  :: String
   -> DbMode
-  -> Aff (sqlite :: SQLITE | e) DbConnection
-connect filename dbMode = runFn3 _connect filename mode true
+  -> Aff DbConnection
+connect filename dbMode = fromEffectFnAff $ runFn3 _connect filename mode true
   where
   mode = modeToInt dbMode
 
 -- | Uses sqlite's built-in cache to avoid opening the same database multiple times
 connectCached
-  :: forall e
-   . String
+  :: String
   -> DbMode
-  -> Aff (sqlite :: SQLITE | e) DbConnection
-connectCached filename dbMode = runFn3 _connect filename mode true
+  -> Aff DbConnection
+connectCached filename dbMode = fromEffectFnAff $ runFn3 _connect filename mode true
   where
   mode = modeToInt dbMode
 
 
 close
-  :: forall e
-   . DbConnection
-  -> Aff (sqlite :: SQLITE | e) Unit
-close = _close
+  :: DbConnection
+  -> Aff Unit
+close = fromEffectFnAff <<<_close
 
 
 -- | "lastID" result value should be used only for INSERT queries,
@@ -105,14 +102,13 @@ type RunResult = { lastID :: Int, changes :: Int }
 
 
 run
-  :: forall e
-   . DbConnection
+  :: DbConnection
   -> SqlQuery
-  -> Aff (sqlite :: SQLITE | e) RunResult
-run = runFn2 _run
+  -> Aff RunResult
+run db query = fromEffectFnAff $ runFn2 _run db query
 
 
-readRow :: forall a e. Decode a => Foreign -> Aff (sqlite :: SQLITE | e) a
+readRow :: forall a. Decode a => Foreign -> Aff a
 readRow = decode >>> runExcept >>> either (show >>> error >>> throwError) pure
 
 
@@ -122,7 +118,8 @@ getOne
   -> SqlQuery
   -> SqlRow a
 getOne db query = do
-  row <- toMaybe <$> (runFn2 _getOne db query)
+  -- row <- toMaybe <$> (runFn2 _getOne db query)
+  row <- fromEffectFnAff $ runFn2 _getOne db query
   traverse readRow row
 
 
@@ -132,46 +129,41 @@ get
   -> SqlQuery
   -> SqlRows a
 get db query = do
-  rows <- runFn2 _get db query
+  rows <- fromEffectFnAff $ runFn2 _get db query
   traverse readRow rows
 
 
 stmtPrepare
-  :: forall e
-   . DbConnection
+  :: DbConnection
   -> SqlQuery
-  -> Aff (sqlite :: SQLITE | e) DbStatement
-stmtPrepare = runFn2 _stmtPrepare
+  -> Aff DbStatement
+stmtPrepare db query = fromEffectFnAff $ runFn2 _stmtPrepare db query
 
 
 stmtBind
-  :: forall e
-   . DbStatement
+  :: DbStatement
   -> SqlParams
-  -> Aff (sqlite :: SQLITE | e) Unit
-stmtBind = runFn2 _stmtBind
+  -> Aff Unit
+stmtBind stmt params = fromEffectFnAff $ runFn2 _stmtBind stmt params
 
 
 stmtReset
-  :: forall e
-   . DbStatement
-  -> Aff (sqlite :: SQLITE | e) Unit
-stmtReset = _stmtReset
+  :: DbStatement
+  -> Aff Unit
+stmtReset = fromEffectFnAff <<< _stmtReset
 
 
 stmtFinalize
-  :: forall e
-   . DbStatement
-  -> Aff (sqlite :: SQLITE | e) Unit
-stmtFinalize = _stmtFinalize
+  :: DbStatement
+  -> Aff Unit
+stmtFinalize = fromEffectFnAff <<< _stmtFinalize
 
 
 stmtRun
-  :: forall e
-   . DbStatement
+  :: DbStatement
   -> SqlParams
-  -> Aff ( sqlite :: SQLITE | e ) RunResult
-stmtRun = runFn2 _stmtRun
+  -> Aff RunResult
+stmtRun stmt params = fromEffectFnAff $ runFn2 _stmtRun stmt params
 
 
 stmtGetOne
@@ -180,8 +172,13 @@ stmtGetOne
   -> SqlParams
   -> SqlRow a
 stmtGetOne stmt query = do
-  row <- toMaybe <$> (runFn2 _stmtGetOne stmt query)
-  traverse readRow row
+  row <- fromEffectFnAff $ runFn2 _stmtGetOne stmt query
+  readRow row
+  -- row :: Maybe Foreign
+  -- type SqlRow  a = Decode a => Aff (Maybe a)
+  -- readRow :: forall a. Decode a => Foreign -> Aff a
+  -- readRow = decode >>> runExcept >>> either (show >>> error >>> throwError) pure
+  -- _stmtGetOne :: Fn2 DbStatement SqlParams (EffectFnAff (Maybe Foreign))
 
 
 stmtGet
@@ -190,16 +187,16 @@ stmtGet
   -> SqlParams
   -> SqlRows a
 stmtGet stmt query = do
-  rows <- runFn2 _stmtGet stmt query
+  rows <- fromEffectFnAff $ runFn2 _stmtGet stmt query
   traverse readRow rows
 
 
 -- | Listener for the database open event
 listen
-  :: forall e a
+  :: forall a
    . DbConnection
-  -> DbEvent e a
-  -> Eff e a
+  -> DbEvent a
+  -> Effect a
 listen db (Open  callback)   = runFn3 _listen db "open"    (_dbListener callback)
 listen db (Close callback)   = runFn3 _listen db "close"   (_dbListener callback)
 listen db (Error callback)   = runFn3 _listen db "error"   (_dbListener callback)
@@ -211,112 +208,98 @@ foreign import data DbStatement :: Type
 
 foreign import data DbConnection :: Type
 
-foreign import data SQLITE :: Effect
-
 -- | A boxed function that can be used as a listener. This is necessary
 -- | due to the underling implementation of Eff functions.
-foreign import data DbListener :: # Effect -> Type
+-- foreign import data DbListener :: # Effect -> Type
+foreign import data DbListener :: Type
 
 -- | Creates a DbListener from a normal PureScript Eff function for the
 -- | listen function.
 foreign import _dbListener
-  :: forall e a b
-   . (a -> Eff e b)
-  -> DbListener e
+  :: forall a b
+   . (a -> Effect b)
+  -> DbListener
 
 -- | Creates a DbListener for a callback that takes two arguments
 foreign import _dbListenerFn2
-  :: forall e a b c
-   . (Fn2 a b (Eff e c))
-  -> DbListener e
+  :: forall a b c
+   . (Fn2 a b (Effect c))
+  -> DbListener
 
-foreign import _setVerbose :: forall e. Eff (sqlite :: SQLITE | e) Unit
+foreign import _listen
+  :: forall a
+   . Fn3
+     DbConnection
+     String
+     DbListener
+     (Effect a)
+
+foreign import _setVerbose :: Effect Unit
 
 foreign import _connect
-  :: forall e
-   . Fn3
+  :: Fn3
      String
      Int
      Boolean
-     (Aff (sqlite :: SQLITE | e) DbConnection)
+     (EffectFnAff DbConnection)
 
 foreign import _close
-  :: forall e
-   . DbConnection
-  -> (Aff (sqlite :: SQLITE | e) Unit)
+  :: DbConnection
+  -> (EffectFnAff Unit)
 
 foreign import _run
-  :: forall e
-   . Fn2
+  :: Fn2
      DbConnection
      SqlQuery
-     (Aff (sqlite :: SQLITE | e) RunResult)
+     (EffectFnAff RunResult)
 
 foreign import _getOne
-  :: forall e
-   . Fn2
+  :: Fn2
      DbConnection
      SqlQuery
-     (Aff (sqlite :: SQLITE | e) (Undefinable Foreign))
+     (EffectFnAff (Maybe Foreign))
 
 foreign import _get
-  :: forall e
-   . Fn2
+  :: Fn2
      DbConnection
      SqlQuery
-     (Aff (sqlite :: SQLITE | e) (Array Foreign))
+     (EffectFnAff (Array Foreign))
 
 
 foreign import _stmtPrepare
-  :: forall e
-   . Fn2
+  :: Fn2
      DbConnection
      SqlQuery
-     (Aff (sqlite :: SQLITE | e) DbStatement)
+     (EffectFnAff DbStatement)
 
 foreign import _stmtBind
-  :: forall e
-   . Fn2
+  :: Fn2
      DbStatement
      SqlParams
-     (Aff (sqlite :: SQLITE | e) Unit)
+     (EffectFnAff Unit)
 
 foreign import _stmtReset
-  :: forall e
-   . DbStatement
-  -> (Aff (sqlite :: SQLITE | e) Unit)
+  :: DbStatement
+  -> (EffectFnAff Unit)
 
 foreign import _stmtFinalize
-  :: forall e
-   . DbStatement
-  -> (Aff (sqlite :: SQLITE | e) Unit)
+  :: DbStatement
+  -> (EffectFnAff Unit)
 
 foreign import _stmtRun
-  :: forall e
-   . Fn2
+  :: Fn2
      DbStatement
      SqlParams
-     (Aff (sqlite :: SQLITE | e) RunResult)
+     (EffectFnAff RunResult)
 
 foreign import _stmtGetOne
-  :: forall e
-   . Fn2
+  :: Fn2
      DbStatement
      SqlParams
-     (Aff (sqlite :: SQLITE | e) (Undefinable Foreign))
+     (EffectFnAff Foreign)
 
 foreign import _stmtGet
-  :: forall e
-   . Fn2
+  :: Fn2
      DbStatement
      SqlParams
-     (Aff (sqlite :: SQLITE | e) (Array Foreign))
-
-
-foreign import _listen
-  :: forall e a
-   . Fn3
-     DbConnection
-     String
-     (DbListener e)
-     (Eff e a)
+     (EffectFnAff (Array Foreign))

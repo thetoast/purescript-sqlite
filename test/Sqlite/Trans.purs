@@ -1,19 +1,16 @@
 module Test.Sqlite.Trans where
 
-import Control.Monad.Aff.AVar (AVAR)
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE)
-import Control.Monad.Eff.Exception (message)
+import Effect (Effect)
+import Effect.Exception (message)
 import Control.Monad.Except.Trans (runExceptT)
 import Data.Either (Either(..))
-import Data.Foreign.Class (class Decode, decode)
-import Data.Foreign.Index (readProp)
+import Foreign.Class (class Decode, decode)
+import Foreign.Index (readProp)
 import Prelude (class Eq, Unit, bind, discard, pure, unit, ($), (<>), (=<<), (==))
-import Sqlite.Core (SQLITE, DbMode(ReadWriteCreate))
+import Sqlite.Core (DbMode(ReadWriteCreate))
 import Sqlite.Trans (closeT, getT, runT, connectT)
 import Test.Unit (test, suite)
 import Test.Unit.Assert (assert)
-import Test.Unit.Console (TESTOUTPUT)
 import Test.Unit.Main (runTest)
 
 
@@ -27,7 +24,7 @@ instance loremEq :: Eq Lorem where
 
 data Lorem = Lorem { info :: String }
 
-main :: forall e. Eff ( avar :: AVAR, console :: CONSOLE, testOutput :: TESTOUTPUT, sqlite :: SQLITE | e ) Unit
+main :: Effect Unit
 main = runTest do
   suite "Sqlite.Trans" do
     test "functionality" do

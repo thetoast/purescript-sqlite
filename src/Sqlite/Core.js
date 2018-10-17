@@ -20,7 +20,7 @@ exports._OPEN_READWRITE = sqlite3.OPEN_READWRITE;
 exports._OPEN_CREATE = sqlite3.OPEN_CREATE;
 
 exports._connect = function(filename, mode, cached) {
-  return function(success, error) {
+  return function(error, success) {
     var Database = cached ? sqlite3.cached.Database : sqlite3.Database;
 
     var db = new Database(filename, mode, function(err) {
@@ -35,7 +35,7 @@ exports._connect = function(filename, mode, cached) {
 }
 
 exports._close = function(db) {
-  return function(success, error) {
+  return function(error, success) {
     db.close(function(err) {
       if (err) {
         error(err);
@@ -48,14 +48,18 @@ exports._close = function(db) {
 }
 
 exports._run = function(db, query) {
-  return function(success, error) {
+  console.log('run called');
+  return function(error, success) {
+    console.log('run executed');
     db.run(query, function(err) {
       if (err) {
+        console.log('run error:', err);
         error(err);
       }
       else {
         var lastID = this.lastID; // Only for INSERT
         var changes = this.changes; // Only for UPDATE or DELETE
+        console.log('run success', lastID, changes);
         success({ lastID: lastID, changes: changes });
       }
     });
@@ -63,7 +67,7 @@ exports._run = function(db, query) {
 }
 
 exports._getOne = function(db, query) {
-  return function(success, error) {
+  return function(error, success) {
     db.get(query, function(err, row) {
       if (err) {
         error(err);
@@ -76,7 +80,7 @@ exports._getOne = function(db, query) {
 }
 
 exports._get = function(db, query) {
-  return function(success, error) {
+  return function(error, success) {
     db.all(query, function(err, rows) {
       if (err) {
         error(err);
@@ -90,7 +94,7 @@ exports._get = function(db, query) {
 
 
 exports._stmtPrepare = function(db, query) {
-  return function(success, error) {
+  return function(error, success) {
     var statement = db.prepare(query, function(err) {
       if (err) {
         error(err);
@@ -103,7 +107,7 @@ exports._stmtPrepare = function(db, query) {
 }
 
 exports._stmtBind = function(stmt, params) {
-  return function(success, error) {
+  return function(error, success) {
     stmt.bind(sqlParamsToObj(params), function(err) {
       if (err) {
         error(err);
@@ -116,19 +120,19 @@ exports._stmtBind = function(stmt, params) {
 }
 
 exports._stmtReset = function(stmt) {
-  return function(success, error) {
+  return function(error, success) {
     stmt.reset(success);
   }
 }
 
 exports._stmtFinalize = function(stmt) {
-  return function(success, error) {
+  return function(error, success) {
     stmt.finalize(success);
   }
 }
 
 exports._stmtRun = function(stmt, params) {
-  return function(success, error) {
+  return function(error, success) {
     stmt.run(sqlParamsToObj(params), function(err) {
       if (err) {
         error(err);
@@ -143,7 +147,7 @@ exports._stmtRun = function(stmt, params) {
 }
 
 exports._stmtGetOne = function(stmt, params) {
-  return function(success, error) {
+  return function(error, success) {
     stmt.get(sqlParamsToObj(params), function(err, row) {
       if (err) {
         error(err);
@@ -156,7 +160,7 @@ exports._stmtGetOne = function(stmt, params) {
 }
 
 exports._stmtGet = function(stmt, params) {
-  return function(success, error) {
+  return function(error, success) {
     stmt.all(sqlParamsToObj(params), function(err, rows) {
       if (err) {
         error(err);
