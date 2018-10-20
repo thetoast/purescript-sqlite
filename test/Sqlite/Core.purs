@@ -1,21 +1,21 @@
 module Test.Sqlite.Core where
 
-import Effect.Class (liftEffect)
-import Effect.Aff (attempt, launchAff)
-import Effect (Effect, forE)
-import Effect.Exception (message)
+import Prelude
+
 import Data.Array (length)
 import Data.Either (Either(..), isLeft)
+import Data.Maybe (Maybe(..), isNothing)
+import Effect (Effect, forE)
+import Effect.Aff (attempt, launchAff)
+import Effect.Class (liftEffect)
+import Effect.Exception (message)
 import Foreign.Class (class Decode, decode)
 import Foreign.Index (readProp)
-import Data.Maybe (Maybe(..), isNothing)
-import Prelude (class Eq, Unit, bind, discard, map, pure, class Show, show, unit, ($), (=<<), (==))
-import Sqlite.Core (DbConnection, DbEvent(..), DbMode(..), SqlRows, close, connect, get, listen, run, stmtFinalize, stmtGet, stmtGetOne, stmtPrepare, stmtRun, (:=))
+import Sqlite.Core (close, connect, get, listen, run, stmtFinalize, stmtGet, stmtGetOne, stmtPrepare, stmtRun)
+import Sqlite.Data (DbConnection, DbEvent(..), DbMode(..), SqlRows, (:=))
 import Test.Unit (test, suite)
 import Test.Unit.Assert (assert)
 import Test.Unit.Main (runTest)
-
-
 
 instance decodeLorem :: Decode Lorem where
   decode obj = do

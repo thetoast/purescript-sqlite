@@ -15,10 +15,6 @@ exports._setVerbose = function() {
   sqlite3.verbose()
 }
 
-exports._OPEN_READONLY = sqlite3.OPEN_READONLY;
-exports._OPEN_READWRITE = sqlite3.OPEN_READWRITE;
-exports._OPEN_CREATE = sqlite3.OPEN_CREATE;
-
 exports._connect = function(filename, mode, cached) {
   return function(error, success) {
     var Database = cached ? sqlite3.cached.Database : sqlite3.Database;

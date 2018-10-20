@@ -1,14 +1,15 @@
 module Test.Sqlite.Trans where
 
-import Effect (Effect)
-import Effect.Exception (message)
+import Prelude
+
 import Control.Monad.Except.Trans (runExceptT)
 import Data.Either (Either(..))
+import Effect (Effect)
+import Effect.Exception (message)
 import Foreign.Class (class Decode, decode)
 import Foreign.Index (readProp)
-import Prelude (class Eq, Unit, bind, discard, pure, unit, ($), (<>), (=<<), (==))
-import Sqlite.Core (DbMode(ReadWriteCreate))
-import Sqlite.Trans (closeT, getT, runT, connectT)
+import Sqlite.Data (DbMode(..))
+import Sqlite.Trans (closeT, connectT, getT, runT)
 import Test.Unit (test, suite)
 import Test.Unit.Assert (assert)
 import Test.Unit.Main (runTest)

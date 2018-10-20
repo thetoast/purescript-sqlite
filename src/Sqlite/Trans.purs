@@ -1,13 +1,15 @@
 module Sqlite.Trans where
 
 import Sqlite.Core
-import Effect.Aff (Aff, attempt)
-import Effect.Exception (Error)
+
 import Control.Monad.Except.Trans (ExceptT(..))
 import Data.Either (Either(..))
-import Foreign.Class (class Decode)
 import Data.Maybe (Maybe)
+import Effect.Aff (Aff, attempt)
+import Effect.Exception (Error)
+import Foreign.Class (class Decode)
 import Prelude (Unit, bind, pure, ($))
+import Sqlite.Data (DbConnection, DbMode, DbStatement, RunResult, SqlParams, SqlQuery)
 
 type SqlRowT  a = Decode a => ExceptT Error Aff (Maybe a)
 type SqlRowsT a = Decode a => ExceptT Error Aff (Array a)
