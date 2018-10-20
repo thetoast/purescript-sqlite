@@ -95,9 +95,9 @@ stmtGetT
   -> SqlRowsT a
 stmtGetT stmt query = ExceptT $ attempt $ stmtGet stmt query
 
--- stmtGetOneT
---   :: forall a
---    . DbStatement
---   -> SqlParams
---   -> SqlRowT a
--- stmtGetOneT stmt query = ExceptT $ attempt $ stmtGetOne stmt query
+stmtGetOneT
+  :: forall a
+   . DbStatement
+  -> SqlParams
+  -> SqlRowT a
+stmtGetOneT stmt query = ExceptT $ attempt $ stmtGetOne stmt query

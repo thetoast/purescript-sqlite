@@ -7,7 +7,7 @@ import Control.Monad.Except (runExcept)
 import Data.Either (either)
 import Data.Function.Uncurried (Fn2, Fn3, mkFn2, runFn2, runFn3)
 import Data.Int.Bits as Bits
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe)
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple)
 import Effect (Effect)
@@ -40,7 +40,11 @@ data DbEvent a
   | Trace   (String -> Effect a)
   | Profile (String -> Int -> Effect a)
 
-data SqlParam = SqlString String | SqlInt Int | SqlNumber Number | SqlBoolean Boolean
+data SqlParam
+    = SqlString String
+    | SqlInt Int
+    | SqlNumber Number
+    | SqlBoolean Boolean
 
 -- instance strSqlParam :: Primitive String SqlParam where
 --   mkPrim = SqlString
@@ -118,7 +122,6 @@ getOne
   -> SqlQuery
   -> SqlRow a
 getOne db query = do
-  -- row <- toMaybe <$> (runFn2 _getOne db query)
   row <- fromEffectFnAff $ runFn2 _getOne db query
   traverse readRow row
 
@@ -174,12 +177,6 @@ stmtGetOne
 stmtGetOne stmt query = do
   row <- fromEffectFnAff $ runFn2 _stmtGetOne stmt query
   readRow row
-  -- row :: Maybe Foreign
-  -- type SqlRow  a = Decode a => Aff (Maybe a)
-  -- readRow :: forall a. Decode a => Foreign -> Aff a
-  -- readRow = decode >>> runExcept >>> either (show >>> error >>> throwError) pure
-  -- _stmtGetOne :: Fn2 DbStatement SqlParams (EffectFnAff (Maybe Foreign))
-
 
 stmtGet
   :: forall a
