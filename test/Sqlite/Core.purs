@@ -11,7 +11,7 @@ import Effect.Class (liftEffect)
 import Effect.Exception (message)
 import Foreign.Class (class Decode, decode)
 import Foreign.Index (readProp)
-import Sqlite.Core (close, connect, get, listen, run, stmtFinalize, stmtGet, stmtGetOne, stmtPrepare, stmtRun)
+import Sqlite.Core (close, connect, get, getOne, listen, run, stmtFinalize, stmtGet, stmtGetOne, stmtPrepare, stmtRun)
 import Sqlite.Data (DbConnection, DbEvent(..), DbMode(..), SqlRows, (:=))
 import Test.Unit (test, suite)
 import Test.Unit.Assert (assert)
@@ -46,7 +46,22 @@ testConnectionListeners db = do
 main :: Effect Unit
 main = runTest do
   suite "Sqlite.Core" do
-    test "functionality" do
+    test "core" do
+      db <- connect ":memory:" ReadWriteCreate
+      _ <- liftEffect $ testConnectionListeners db
+
+      _ <- run db "CREATE TABLE IF NOT EXISTS lorem (info TEXT)"
+      _ <- run db "INSERT INTO lorem VALUES (1)"
+
+      lorem <- getOne db "SELECT * FROM lorem WHERE info=1"
+      case lorem of
+           Just (Lorem l) -> assert "Did not select right lorem" $ l.info == "1"
+           Nothing -> assert "Should have been Just" false
+
+
+      close db
+
+    test "stmt" do
       db <- connect ":memory:" ReadWriteCreate
       _ <- liftEffect $ testConnectionListeners db
       _ <- run db "CREATE TABLE IF NOT EXISTS lorem (info TEXT)"

@@ -73,11 +73,11 @@ foreign import _run :: Fn2 DbConnection SqlQuery (EffectFnAff RunResult)
 run :: DbConnection -> SqlQuery -> Aff RunResult
 run db query = fromEffectFnAff $ runFn2 _run db query
 
-foreign import _getOne :: Fn2 DbConnection SqlQuery (EffectFnAff (Maybe Foreign))
+foreign import _getOne :: Fn2 DbConnection SqlQuery (EffectFnAff Foreign)
 getOne :: forall a . DbConnection -> SqlQuery -> SqlRow a
 getOne db query = do
   row <- fromEffectFnAff $ runFn2 _getOne db query
-  traverse readRow row
+  readRow row
 
 foreign import _get :: Fn2 DbConnection SqlQuery (EffectFnAff (Array Foreign))
 get :: forall a . DbConnection -> SqlQuery -> SqlRows a

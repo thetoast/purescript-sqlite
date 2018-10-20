@@ -8,3 +8,4 @@
 pursuit.json*
 Session.vim
 .psc-ide-port
+.nyc_output
