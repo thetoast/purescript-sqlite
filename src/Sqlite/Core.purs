@@ -9,7 +9,7 @@ import Data.Function.Uncurried (Fn2, Fn3, mkFn2, runFn2, runFn3)
 import Data.Int.Bits as Bits
 import Data.Maybe (Maybe)
 import Data.Traversable (traverse)
-import Data.Tuple (Tuple)
+import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Aff (Aff)
 import Effect.Aff.Compat (EffectFnAff, fromEffectFnAff)
@@ -46,17 +46,18 @@ data SqlParam
     | SqlNumber Number
     | SqlBoolean Boolean
 
--- instance strSqlParam :: Primitive String SqlParam where
---   mkPrim = SqlString
+class SqlParamEncode p where
+    mkParam2 :: String -> p -> Tuple String SqlParam
+instance intParamEncode :: SqlParamEncode Int where
+    mkParam2 k i = Tuple k (SqlInt i)
+instance numberParamEncode :: SqlParamEncode Number where
+    mkParam2 k f = Tuple k (SqlNumber f)
+instance stringParamEncode :: SqlParamEncode String where
+    mkParam2 k s = Tuple k (SqlString s)
+instance booleanParamEncode :: SqlParamEncode Boolean where
+    mkParam2 k b = Tuple k (SqlBoolean b)
 
--- instance intSqlParam :: Primitive Int SqlParam where
---   mkPrim = SqlInt
-
--- instance numSqlParam :: Primitive Number SqlParam where
---   mkPrim = SqlNumber
-
--- instance boolSqlParam :: Primitive Boolean SqlParam where
---   mkPrim = SqlBoolean
+infix 4 mkParam2 as :=
 
 instance showSqlParam :: Show SqlParam where
   show (SqlString a)  = a

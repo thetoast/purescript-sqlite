@@ -9,9 +9,8 @@ import Data.Either (Either(..), isLeft)
 import Foreign.Class (class Decode, decode)
 import Foreign.Index (readProp)
 import Data.Maybe (Maybe(..), isNothing)
-import Data.Tuple (Tuple(..))
 import Prelude (class Eq, Unit, bind, discard, map, pure, class Show, show, unit, ($), (=<<), (==))
-import Sqlite.Core (DbConnection, DbEvent(..), DbMode(..), SqlRows, close, connect, get, listen, run, stmtFinalize, stmtGet, stmtGetOne, stmtPrepare, stmtRun, SqlParam(..))
+import Sqlite.Core (DbConnection, DbEvent(..), DbMode(..), SqlRows, close, connect, get, listen, run, stmtFinalize, stmtGet, stmtGetOne, stmtPrepare, stmtRun, (:=))
 import Test.Unit (test, suite)
 import Test.Unit.Assert (assert)
 import Test.Unit.Main (runTest)
@@ -54,7 +53,7 @@ main = runTest do
       stmt <- stmtPrepare db "INSERT INTO lorem VALUES ($value)"
 
       _ <- liftEffect $ forE 0 10 \i -> do
-        _ <- launchAff $ stmtRun stmt [ Tuple "$value" (SqlInt i) ]
+        _ <- launchAff $ stmtRun stmt [ "$value" := i ]
         pure unit
 
       stmtFinalize stmt
@@ -64,16 +63,16 @@ main = runTest do
 
       stmtSelectLimit <- stmtPrepare db "SELECT * FROM lorem LIMIT $limit"
       let rowsLimit = 5
-      limitedRows <- stmtGet stmtSelectLimit [ Tuple "$limit" (SqlInt rowsLimit) ] :: SqlRows Lorem
+      limitedRows <- stmtGet stmtSelectLimit [ "$limit" := rowsLimit ] :: SqlRows Lorem
       assert "Rows number does not match limit" $ length limitedRows == rowsLimit
       stmtFinalize stmtSelectLimit
 
       stmtSelectOne <- stmtPrepare db "SELECT * FROM lorem WHERE info = $info"
       let loremInfo = "5"
-      loremRow <- stmtGetOne stmtSelectOne [ Tuple "$info" (SqlString loremInfo) ]
+      loremRow <- stmtGetOne stmtSelectOne [ "$info" := loremInfo ]
       assert "Expected row is not found" $ loremRow == (Just $ Lorem { info: loremInfo })
       let badLoremInfo = "11"
-      badLoremRow <- stmtGetOne stmtSelectOne [ Tuple "$info" (SqlString badLoremInfo) ]
+      badLoremRow <- stmtGetOne stmtSelectOne [ "$info" := badLoremInfo ]
       assert "Expected row to be Nothing" $ isNothing (badLoremRow :: Maybe Lorem)
       stmtFinalize stmtSelectOne
 
