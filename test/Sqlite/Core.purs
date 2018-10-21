@@ -6,12 +6,14 @@ import Data.Array (length)
 import Data.Either (Either(..), isLeft)
 import Data.Maybe (Maybe(..), isNothing)
 import Effect (Effect, forE)
-import Effect.Aff (attempt, launchAff)
+import Effect.Aff (Aff, attempt, launchAff)
 import Effect.Class (liftEffect)
-import Effect.Exception (message)
+import Effect.Console (log)
+import Effect.Exception (message, Error)
+import Foreign (unsafeToForeign)
 import Foreign.Class (class Decode, decode)
 import Foreign.Index (readProp)
-import Sqlite.Core (close, connect, get, getOne, listen, run, stmtFinalize, stmtGet, stmtGetOne, stmtPrepare, stmtRun)
+import Sqlite.Core (close, connect, get, getOne, listen, run, stmtFinalize, stmtGet, stmtGetOne, stmtPrepare, stmtRun, stmtBind, stmtReset, readRow)
 import Sqlite.Data (DbConnection, DbEvent(..), DbMode(..), SqlRows, (:=))
 import Test.Unit (test, suite)
 import Test.Unit.Assert (assert)
@@ -38,8 +40,8 @@ testConnectionListeners db = do
   _ <- listen db (Open  (\_ -> launchAff $ assert "Db listener 'open' called" true))
   _ <- listen db (Close (\_ -> launchAff $ assert "Db listener 'close' called" true))
   _ <- listen db (Error (\err -> launchAff $ assert (message err) false))
-  --listen db (Trace (\str -> log str))
-  --listen db (Profile (\str time -> log $ "(" <> show time <> "ms) " <> str))
+  _ <- listen db (Trace (\str -> log str))
+  _ <- listen db (Profile (\str time -> log $ "(" <> show time <> "ms) " <> str))
   pure unit
 
 
@@ -52,12 +54,16 @@ main = runTest do
 
       _ <- run db "CREATE TABLE IF NOT EXISTS lorem (info TEXT)"
       _ <- run db "INSERT INTO lorem VALUES (1)"
+      _ <- run db "INSERT INTO lorem VALUES (2)"
+      _ <- run db "INSERT INTO lorem VALUES (3)"
 
       lorem <- getOne db "SELECT * FROM lorem WHERE info=1"
       case lorem of
            Just (Lorem l) -> assert "Did not select right lorem" $ l.info == "1"
            Nothing -> assert "Should have been Just" false
 
+      rows <- get db "SELECT * FROM lorem"
+      assert "Rows do not match expected output" $ rows == map (\x -> Lorem {info: show x}) [1,2,3]
 
       close db
 
@@ -91,15 +97,76 @@ main = runTest do
       assert "Expected row to be Nothing" $ isNothing (badLoremRow :: Maybe Lorem)
       stmtFinalize stmtSelectOne
 
+      bindStmt <- stmtPrepare db "SELECT * FROM lorem WHERE info = $info"
+      _ <- stmtBind bindStmt [ "$info" := 1]
+      bindRow <- stmtGetOne bindStmt []
+      assert "Bound statement did not return right Lorem" $ bindRow == (Just (Lorem { info: "1" }))
+      _ <- stmtReset bindStmt
+      _ <- stmtBind bindStmt [ "$info" := 2]
+      badBindRow <- stmtGetOne bindStmt []
+      assert "Bound statement did not return right Lorem" $ badBindRow == (Just (Lorem { info: "2" }))
+      stmtFinalize bindStmt
+
       close db
 
     test "failed connect" do
       failDb <- attempt $ connect "someNonexistentFile" ReadOnly
-      assert "Db connection failed" $ (isLeft failDb) == true
+      assert "Db connection failed" $ isLeft failDb
 
       case failDb of
         Right _  -> assert "Db connection should not have succeeded" false
         Left err -> assert "Db error object has the wrong message" $ (message err) == "SQLITE_CANTOPEN: unable to open database file"
+
+    test "readRow" do
+      let foreignLorem = unsafeToForeign $ { info: "1" }
+      (lorem :: Lorem) <- readRow foreignLorem
+      assert "did not decode lorem correctly" $ lorem == Lorem { info: "1" }
+
+      let badForeignLorem = unsafeToForeign $ { info: 1 }
+      (badLorem :: Either Error Lorem) <- attempt $ readRow badForeignLorem
+      assert "should have thrown error" $ isLeft badLorem
+      
+      pure unit
+
+    test "errors" do
+      failDb <- attempt $ connect "someNonexistentFile" ReadOnly
+      assert "Db connection failed" $ isLeft failDb
+
+      db <- connect ":memory:" ReadWriteCreate
+      stmt <- stmtPrepare db "SELECT * FROM sqlite_master"
+
+      -- invalidate db and stmt
+      _ <- stmtFinalize stmt
+      _ <- close db
+
+      closed <- attempt $ close db
+      assert "Db close should have failed" $ isLeft closed
+
+      ran <- attempt $ run db ""
+      assert "run should have failed" $ isLeft ran
+
+      badGetOne <- attempt $ (getOne db "" :: Aff (Maybe Lorem))
+      assert "getOne should have failed" $ isLeft badGetOne
+
+      badGet <- attempt $ (get db "" :: Aff (Array Lorem))
+      assert "get should have failed" $ isLeft badGet
+
+      badStmt <- attempt $ stmtPrepare db ""
+      assert "stmtPrepare should have failed" $ isLeft badStmt
+
+      badBind <- attempt $ stmtBind stmt []
+      assert "stmtBind should have failed" $ isLeft badBind
+
+      (badStmtGetOne :: Either Error (Maybe Lorem)) <- attempt $ stmtGetOne stmt []
+      assert "badStmtGetOne should have failed" $ isLeft badStmtGetOne
+
+      (badStmtGet :: Either Error (Array Lorem)) <- attempt $ stmtGet stmt []
+      assert "badStmtGet should have failed" $ isLeft badStmtGet
+
+      badStmtRun <- attempt $ stmtRun stmt []
+      assert "run should have failed" $ isLeft badStmtRun
+
+      pure unit
 
     test "setVerbose" do
       -- setVerbose call can't fail

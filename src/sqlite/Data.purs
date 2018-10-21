@@ -29,6 +29,14 @@ instance showSqlParam :: Show SqlParam where
   show (SqlNumber n)  = show n
   show (SqlBoolean b) = show b
 
+-- Eq operators
+instance sqlParamEq :: Eq SqlParam  where
+  eq (SqlString p1)  (SqlString p2)  = p1 == p2
+  eq (SqlInt p1)     (SqlInt p2)     = p1 == p2
+  eq (SqlNumber p1)  (SqlNumber p2)  = p1 == p2
+  eq (SqlBoolean p1) (SqlBoolean p2) = p1 == p2
+  eq _ _ = false
+
 -- Used to convert primitives to their corresponding SqlParam
 class SqlParamEncode p where
     mkParam :: p -> SqlParam

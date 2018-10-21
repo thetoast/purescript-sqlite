@@ -7,12 +7,14 @@
     "test": "test"
   },
   "dependencies": {
+    "npm-watch": "^0.4.0",
     "nyc": "^13.1.0",
     "sqlite3": "3.x"
   },
   "devDependencies": {},
   "scripts": {
-    "test": "node ./node_modules/nyc/bin/nyc.js pulp test"
+    "test": "node ./node_modules/nyc/bin/nyc.js pulp test",
+    "watch": "npm-watch"
   },
   "repository": {
     "type": "git",
@@ -30,6 +32,13 @@
   "homepage": "https://github.com/Risto-Stevcev/purescript-sqlite#readme",
   "nyc": {
     "include": "**/*Sqlite*",
-    "exclude": "**/*Test*"
+    "exclude": "**/*Test*",
+    "reporter": ["html", "text"]
+  },
+  "watch": {
+    "test": {
+      "patterns": ["src", "test"],
+      "extensions": "js,purs"
+    }
   }
 }
